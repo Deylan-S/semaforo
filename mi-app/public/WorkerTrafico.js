@@ -1,6 +1,6 @@
 let corriendo = false;
 let resolveGo;
-let estado = { color: "red", direccion: null, tiempo: 6000 };
+let estado = { color: "red", direccion: null, tiempo: 4000 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
