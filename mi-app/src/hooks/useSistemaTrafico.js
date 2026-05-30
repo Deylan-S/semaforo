@@ -1,58 +1,43 @@
 import { useState, useEffect, useRef } from "react";
 
-export function useSistemaTrafico(tiempo = 6000) {
+const DIRECCIONES = ["norte", "sur", "este", "oeste"];
+
+export function useSistemaTrafico(tiempo = 4000) {
   const workers = useRef({}); // donde se van a guardar los web workers
+  const turno = useRef(0); // índice del semáforo que tiene permitido ponerse en verde en este momento
+
+  // se inicializan todos en rojo
   const [luces, setLuces] = useState({
-    norte: "rojo",
-    sur: "rojo",
-    este: "rojo",
-    oeste: "rojo",
+    norte: "red",
+    sur: "red",
+    este: "red",
+    oeste: "red",
   });
 
-  const terminaronTurno = useRef({ ns: 0, eo: 0 });
-  const grupoActivo = useRef("ns"); // par que tiene el turno
-
+  // crea la infraestructura de los workers
   useEffect(() => {
-    // se crean 4 web workers en paralelo
-    const direcciones = ["norte", "sur", "este", "oeste"];
-    direcciones.forEach((dir) => {
+    DIRECCIONES.forEach((dir) => {
       const w = new Worker("/WorkerTrafico.js");
-      workers.current[dir] = w; // guarda el worker dentro de workers
+      workers.current[dir] = w;
 
       w.onmessage = ({ data }) => {
         if (data.type === "STATE_CHANGE") {
-          // actuzaliza el estado
           setLuces((anterior) => ({ ...anterior, [dir]: data.color }));
         }
         if (data.type === "READY") {
-          // cuenta cuántos del grupo están listos
-          const grupo = ["norte", "sur"].includes(dir) ? "ns" : "eo";
-          terminaronTurno.current[grupo]++;
-
-          if (terminaronTurno.current[grupo] === 2) {
-            // los dos terminaron entonces reincia el contador y cambia de turno
-            terminaronTurno.current[grupo] = 0;
-            grupoActivo.current = grupo === "ns" ? "eo" : "ns";
-            direccionGrupo(grupoActivo.current);
-          }
+          turno.current = (turno.current + 1) % 4;
+          const siguiente = DIRECCIONES[turno.current];
+          workers.current[siguiente]?.postMessage({ type: "GO" });
         }
       };
 
-      w.postMessage({ type: "INIT", info: { direccion: dir, tiempo: tiempo } });
+      w.postMessage({ type: "INIT", payload: { direccion: dir, tiempo } });
     });
 
-    // arranca como el primer grupo
-    direccionGrupo("ns");
+    workers.current["norte"]?.postMessage({ type: "GO" });
 
-    // elimina los workers
-    return () => direcciones.forEach((d) => workers.current[d].terminate());
+    return () => DIRECCIONES.forEach((d) => workers.current[d].terminate());
   }, []);
 
-  // función para activar un grupo
-  function direccionGrupo(group) {
-    const par = group === "ns" ? ["norte", "sur"] : ["este", "oeste"];
-    par.forEach((dir) => workers.current[dir]?.postMessage({ type: "GO" }));
-  }
-
-  return { lights: luces };
+  return { luces };
 }
