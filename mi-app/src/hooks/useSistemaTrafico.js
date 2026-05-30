@@ -17,7 +17,7 @@ export function useSistemaTrafico(tiempo = 4000) {
   // crea la infraestructura de los workers
   useEffect(() => {
     DIRECCIONES.forEach((dir) => {
-      const w = new Worker("/WorkerTrafico.js");
+      const w = new Worker(`${import.meta.env.BASE_URL}WorkerTrafico.js`);
       workers.current[dir] = w;
 
       w.onmessage = ({ data }) => {
